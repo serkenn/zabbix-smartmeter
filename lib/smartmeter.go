@@ -71,9 +71,12 @@ func (p SmartmeterPlugin) FetchMetrics() (metrics map[string]float64, err error)
 		}
 	}
 
+	// 0xE0(買電) と 0xE3(売電) を追加
 	request := smartmeter.NewFrame(smartmeter.LvSmartElectricEnergyMeter, smartmeter.Get, []*smartmeter.Property{
 		smartmeter.NewProperty(smartmeter.LvSmartElectricEnergyMeter_InstantaneousElectricPower, nil),
 		smartmeter.NewProperty(smartmeter.LvSmartElectricEnergyMeter_InstantaneousCurrent, nil),
+		smartmeter.NewProperty(0xE0, nil), // 積算電力量（正方向）
+		smartmeter.NewProperty(0xE3, nil), // 積算電力量（逆方向）
 	})
 	// いきなり電力値取得を試みる
 	response, err := p.dev.QueryEchonetLite(request, smartmeter.Retry(3))
@@ -106,6 +109,19 @@ func (p SmartmeterPlugin) FetchMetrics() (metrics map[string]float64, err error)
 			// 瞬時電流計測値
 			metrics["r"] = float64(int16(binary.BigEndian.Uint16(p.EDT[:2]))) / 10.0
 			metrics["t"] = float64(int16(binary.BigEndian.Uint16(p.EDT[2:]))) / 10.0
+		
+		// ★ここから追加★
+		case 0xE0:
+			// 積算電力量（正方向）
+			if len(p.EDT) == 4 {
+				metrics["total_normal"] = float64(binary.BigEndian.Uint32(p.EDT))
+			}
+		case 0xE3:
+			// 積算電力量（逆方向）
+			if len(p.EDT) == 4 {
+				metrics["total_reverse"] = float64(binary.BigEndian.Uint32(p.EDT))
+			}
+		// ★ここまで追加★
 		}
 	}
 	return
