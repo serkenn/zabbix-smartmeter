@@ -1,76 +1,39 @@
-# mackerel-plugin-smartmeter
+# zabbix-smartmeter
 
-USB接続のWi-SUNモジュールを用いてスマートメーターから情報取得するMackerelプラグイン
+USB接続のWi-SUNモジュールを用いて、スマートメーターから電力情報を取得するCLIツールです。
+従来の **Mackerel** プラグインとしての利用に加え、**Zabbix** エージェント（JSON出力）との連携にも対応しています。
+
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/serkenn/zabbix-smartmeter)
+![Build Status](https://img.shields.io/github/actions/workflow/status/serkenn/zabbix-smartmeter/release.yml)
 
 ## 概要
 
-USB接続のWi-SUNモジュールを用いて自宅の電力スマートメーターにアクセスし、[Mackerel](https://mackerel.io/ja/)を用いて電力値・電流値をグラフ化するプログラムです。
+Bルートサービス（スマートメーター）にアクセスし、以下のデータを取得します。
 
-本プラグインで取得できる値は下記の通りです。
+- **瞬時電力** [W]
+- **瞬時電流**（R相・T相）[A]
+- **積算電力量**（正方向：買電）[kWh] ※v0.0.6以降
+- **積算電力量**（逆方向：売電）[kWh] ※v0.0.6以降
 
-- 瞬時電力[W]
-- 瞬時電流（R相・T相）[A]
+取得したデータは、Mackerelへの投稿用フォーマット、またはZabbix連携用のJSONフォーマットで出力可能です。
 
-## 利用の準備
+## 動作確認済みハードウェア
 
-まずPAN(Personal Area Network)のスキャンを行います。BルートIDとパスワードが必要です。（以下のコマンド例において、Bルート専用モジュールを使う場合は`--dse`オプションを外してください）
+- **[UDG-1-WSNE](https://web116.jp/shop/netki/miruene_usb/miruene_usb_00.html)** (NTT東日本/西日本)
+    - ※本モジュールを利用する場合は `--dse` オプションが必須です。
 
-```
-$ ./mackerel-plugin-smartmeter --device /dev/ttyACM0 --id ******************************** --password ************ --scan --dse
->> "SKSCAN 2 FFFFFFFF 7 0"
-<< "OK"
-<< "EVENT 20 FE80:0000:0000:0000:****:****:****:**** 0"
-<< "EPANDESC"
-<< "  Channel:**"
-<< "  Channel Page:**"
-<< "  Pan ID:****"
-<< "  Addr:****************"
-<< "  LQI:9B"
-<< "  Side:0"
-<< "  PairID:********"
-<< "EVENT 22 FE80:0000:0000:0000:****:****:****:**** 0"
->> "SKLL64 ****************"
-<< "FE80:0000:0000:0000:****:****:****:****"
-```
+## インストール
 
-スマートメーターとの距離によっては高確率で失敗するので、うまくいかない場合は何度か試してみてください。
+[Releases](https://github.com/serkenn/zabbix-smartmeter/releases) ページから、環境に合わせたバイナリをダウンロードしてください。
 
-上記出力のうち「Channel」および最終行のIPv6アドレスを記録しておき、コマンドライン引数として利用します。
+**Raspberry Pi / Proxmox (LXC) への設置例:**
 
-```
-$ ./mackerel-plugin-smartmeter --device /dev/ttyACM0 --id ******************************** --password ************ --channel ** --ipaddr FE80:0000:0000:0000:****:****:****:**** --dse
-smartmeter.power.value	296	1584861299
-smartmeter.current.r	2	1584861299
-smartmeter.current.t	1	1584861299
-```
+```bash
+# ダウンロードと配置
+wget [https://github.com/serkenn/zabbix-smartmeter/releases/download/v0.0.6/zabbix-smartmeter_linux-amd64.zip](https://github.com/serkenn/zabbix-smartmeter/releases/download/v0.0.6/zabbix-smartmeter_linux-amd64.zip)
+unzip zabbix-smartmeter_linux-amd64.zip
+sudo mv zabbix-smartmeter /usr/local/bin/
+sudo chmod +x /usr/local/bin/zabbix-smartmeter
 
-こんな風に値が得られればスマートメーターの値が取れています。Mackerelに登録しましょう。
-
-## Mackerelに登録する
-
-`mackerel-agent.conf`に動作確認したときと同じコマンドライン引数を書き写します。
-
-```
-[plugin.metrics.smartmeter]
-command = "/home/pi/bin/mackerel-plugin-smartmeter --device /dev/ttyACM0 --id ******************************** --password ************ --channel ** --ipaddr FE80:0000:0000:0000:****:****:****:**** --dse"
-```
-
-mackerel-agentをsystemd管理している場合、下記のように再起動します。
-
-```
-$ sudo systemctl restart mackerel-agent
-```
-
-しばらく待つと、瞬時電力と瞬時電流（R相・T相）のグラフが得られます。
-
-![electric-power-consumption](https://raw.githubusercontent.com/hnw/mackerel-plugin-smartmeter/images/electric-power-consumption.png)
-
-![electric-current](https://raw.githubusercontent.com/hnw/mackerel-plugin-smartmeter/images/electric-current.png)
-
-## 注意点
-
-Wi-SUNモジュールで用いられるSKコマンドにはスタンダードエディション（Bルート専用）とデュアルスタックエディション(DSE)の2系統があります。具体的には、JORJIN WSR35A1-00 や テセラ・テクノロジー RL7023 Stick-D/IPSなどはBルート専用で、ローム BP35C2や[UDG-1-WSNE](https://web116.jp/shop/netki/miruene_usb/miruene_usb_00.html)などがDSEのようです。DSEモジュールを利用する場合は本プログラムに`--dse`オプションを指定してください。
-
-作者が現時点で動作確認しているWi-SUNモジュールは下記の通りです。
-
-- [UDG-1-WSNE](https://web116.jp/shop/netki/miruene_usb/miruene_usb_00.html)
+# シリアルポート権限の付与 (Zabbixユーザーの場合)
+sudo usermod -aG dialout zabbix
