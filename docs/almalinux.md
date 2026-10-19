@@ -32,12 +32,33 @@ systemd timer (1分ごと)
 ### RPM（推奨）
 
 [Releases](https://github.com/serkenn/zabbix-smartmeter/releases) から対象アーキテクチャの RPM を取得します。
+RPM のファイル名にはバージョンが入るため、`latest/download/` ではなくタグ付きの URL を使います。
 
 ```bash
-# x86_64 の例
-curl -LO https://github.com/serkenn/zabbix-smartmeter/releases/latest/download/zabbix-smartmeter-0.1.0-1.x86_64.rpm
-sudo dnf install ./zabbix-smartmeter-0.1.0-1.x86_64.rpm
+# x86_64 の例。VER は Releases ページで確認したバージョンに置き換える
+VER=0.1.0
+curl -LO "https://github.com/serkenn/zabbix-smartmeter/releases/download/v${VER}/zabbix-smartmeter-${VER}-1.x86_64.rpm"
+sudo dnf install "./zabbix-smartmeter-${VER}-1.x86_64.rpm"
 ```
+
+`gh` コマンドが使えるなら、バージョンを調べずに取得できます。
+
+```bash
+gh release download --repo serkenn/zabbix-smartmeter --pattern '*.x86_64.rpm'
+sudo dnf install ./zabbix-smartmeter-*.x86_64.rpm
+```
+
+> **RPM / deb は v0.0.6 より後のリリースから提供されます。**
+> v0.0.6 以前は旧ワークフローで作られているため zip しかありません。
+> その場合は下の「zip（RPM を使わない場合）」の手順を使ってください。
+
+アーキテクチャ別のファイル名は次のとおりです。
+
+| 環境 | RPM | deb |
+| --- | --- | --- |
+| x86_64 | `...x86_64.rpm` | `..._amd64.deb` |
+| Raspberry Pi (64bit) | `...aarch64.rpm` | `..._arm64.deb` |
+| Raspberry Pi (32bit) | `...armv6hl.rpm` | `..._armhf.deb` |
 
 RPM は以下を配置します。
 

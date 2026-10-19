@@ -7,6 +7,7 @@
 を実行して zabbix/zabbix_smartmeter_template.{yaml,xml} を再生成する。
 手で片方だけ編集すると2つのファイルがずれるので注意。
 """
+import re
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
@@ -142,6 +143,22 @@ def y(value, indent):
         return "\n".join(out)
     return pad + scalar(value, indent)
 
+# YAMLが文字列以外（真偽値・数値・日時）として解釈してしまう値のパターン。
+# Zabbixは全フィールドを文字列として受け取るため、該当する値はクォートする。
+# 例: date を裸で書くと datetime になり「文字列で指定してください」で弾かれる。
+_YAML_TYPED = re.compile(
+    r"""^(
+        \d{4}-\d{2}-\d{2}([T ].*)?   # 日付・日時
+        | \d{1,2}:\d{2}(:\d{2})?     # 時刻（60進数として解釈される）
+        | [-+]?0[xXoObB][0-9a-fA-F_]+   # 16/8/2進数
+        | [-+]?\.(inf|Inf|INF)         # 無限大
+        | \.(nan|NaN|NAN)              # NaN
+        | ~                             # null
+    )$""",
+    re.VERBOSE,
+)
+
+
 def scalar(v, indent=0):
     s = str(v)
     if "\n" in s:
@@ -150,6 +167,7 @@ def scalar(v, indent=0):
     needs_quote = (
         s == "" or s[0] in "{}[]&*#?|-<>=!%@`'\"" or ": " in s or s.endswith(":")
         or s.strip() != s or s.lower() in ("yes", "no", "true", "false", "null", "on", "off")
+        or _YAML_TYPED.match(s) is not None
     )
     try:
         float(s)
