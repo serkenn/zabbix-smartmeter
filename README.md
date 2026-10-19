@@ -33,10 +33,13 @@ $ zabbix-smartmeter --json --device /dev/ttyUSB0 --dse --id "$ID" --password "$P
 ### AlmaLinux / RHEL 系（RPM）
 
 ```bash
-sudo dnf install ./zabbix-smartmeter-<version>.x86_64.rpm
+gh release download --repo serkenn/zabbix-smartmeter --pattern '*.x86_64.rpm'
+sudo dnf install ./zabbix-smartmeter-*.x86_64.rpm
 sudo vi /etc/sysconfig/zabbix-smartmeter   # B ルート ID とパスワードを設定
 sudo systemctl enable --now zabbix-smartmeter.timer
 ```
+
+> RPM / deb は v0.0.6 より後のリリースから提供されます。v0.0.6 以前は zip のみです。
 
 systemd タイマー、SELinux、Zabbix テンプレートの取り込みまで含めた手順は
 **[docs/almalinux.md](docs/almalinux.md)** にまとめています。
@@ -44,7 +47,8 @@ systemd タイマー、SELinux、Zabbix テンプレートの取り込みまで�
 ### Debian / Ubuntu / Raspberry Pi OS
 
 ```bash
-sudo apt install ./zabbix-smartmeter_<version>_amd64.deb
+gh release download --repo serkenn/zabbix-smartmeter --pattern '*_arm64.deb'
+sudo apt install ./zabbix-smartmeter_*_arm64.deb
 ```
 
 ### バイナリを直接置く
