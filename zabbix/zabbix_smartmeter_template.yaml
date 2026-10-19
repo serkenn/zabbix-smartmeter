@@ -1,0 +1,167 @@
+zabbix_export:
+  version: '6.0'
+  date: 2026-10-19T00:00:00Z
+  groups:
+    - uuid: 82531070505b4d729046028882756858
+      name: Templates/Smartmeter Project
+  templates:
+    - uuid: 0364d262145348879555138138981442
+      template: Template Smartmeter
+      name: Template Smartmeter
+      description: |
+          USB 接続の Wi-SUN モジュールでスマートメーター（B ルート）から電力情報を取得する。
+          https://github.com/serkenn/zabbix-smartmeter
+      groups:
+        - name: Templates/Smartmeter Project
+      items:
+        - uuid: '50320482592446758661730044521463'
+          name: Smartmeter raw data
+          key: vfs.file.contents[{$SMARTMETER.JSON_PATH}]
+          delay: 1m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          description: |
+              zabbix-smartmeter.timer が書き出した JSON をそのまま読み取るマスターアイテム。
+              個々の値は依存アイテムとして取り出す。収集自体はエージェントの外で行うため、Bルートの応答が遅くても agent の Timeout に影響しない。
+          tags:
+            - tag: component
+              value: smartmeter
+        - uuid: '96614458316248389642055621441864'
+          name: Instantaneous power
+          type: DEPENDENT
+          key: smartmeter.power
+          delay: '0'
+          history: 90d
+          value_type: FLOAT
+          units: W
+          description: 瞬時電力計測値。太陽光の逆潮流時は負の値になる。
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.value
+          master_item:
+            key: vfs.file.contents[{$SMARTMETER.JSON_PATH}]
+          tags:
+            - tag: component
+              value: power
+          triggers:
+            - uuid: 39957ab4cd2c401e8a5e7ba4377f1a3a
+              expression: min(/Template Smartmeter/smartmeter.power,5m)>{$SMARTMETER.POWER.MAX}
+              name: 'Smartmeter: 瞬時電力が 5 分間 {$SMARTMETER.POWER.MAX} W を超えています'
+              priority: WARNING
+              description: 契約容量に近い電力を使い続けている。ブレーカー遮断の恐れがある。
+              tags:
+                - tag: scope
+                  value: capacity
+        - uuid: '40866504229344168015509922003661'
+          name: Current R-phase
+          type: DEPENDENT
+          key: smartmeter.current.r
+          delay: '0'
+          history: 90d
+          value_type: FLOAT
+          units: A
+          description: R相の瞬時電流計測値。
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.r
+          master_item:
+            key: vfs.file.contents[{$SMARTMETER.JSON_PATH}]
+          tags:
+            - tag: component
+              value: current
+        - uuid: '15016503080546118491626084661005'
+          name: Current T-phase
+          type: DEPENDENT
+          key: smartmeter.current.t
+          delay: '0'
+          history: 90d
+          value_type: FLOAT
+          units: A
+          description: T相の瞬時電流計測値。
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.t
+          master_item:
+            key: vfs.file.contents[{$SMARTMETER.JSON_PATH}]
+          tags:
+            - tag: component
+              value: current
+        - uuid: 13d8d653a62c4d2eb9f1ae1ed12a6669
+          name: Cumulative energy (bought)
+          type: DEPENDENT
+          key: smartmeter.total.normal
+          delay: '0'
+          history: 90d
+          value_type: FLOAT
+          units: kWh
+          description: 積算電力量（正方向・買電）。係数(0xD3)と積算電力量単位(0xE1)で換算済み。
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.total_normal
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1h
+          master_item:
+            key: vfs.file.contents[{$SMARTMETER.JSON_PATH}]
+          tags:
+            - tag: component
+              value: energy
+        - uuid: 9621ff6d1b8f415aa511e113045fc3c7
+          name: Cumulative energy (sold)
+          type: DEPENDENT
+          key: smartmeter.total.reverse
+          delay: '0'
+          history: 90d
+          value_type: FLOAT
+          units: kWh
+          description: 積算電力量（逆方向・売電）。係数(0xD3)と積算電力量単位(0xE1)で換算済み。
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.total_reverse
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 1h
+          master_item:
+            key: vfs.file.contents[{$SMARTMETER.JSON_PATH}]
+          tags:
+            - tag: component
+              value: energy
+        - uuid: b5a56aca1a90437aaea3b062faddf223
+          name: Data collected at
+          key: vfs.file.time[{$SMARTMETER.JSON_PATH},modify]
+          delay: 1m
+          history: 7d
+          trends: '0'
+          units: unixtime
+          description: JSON ファイルの更新時刻。収集サービスが止まっていないかの監視に使う。
+          tags:
+            - tag: component
+              value: smartmeter
+          triggers:
+            - uuid: 8d58a4ae9eb64b879684b2fce9f79eab
+              expression: fuzzytime(/Template Smartmeter/vfs.file.time[{$SMARTMETER.JSON_PATH},modify],{$SMARTMETER.STALE})=0
+              name: 'Smartmeter: データが {$SMARTMETER.STALE} 以上更新されていません'
+              priority: WARNING
+              description: |
+                  zabbix-smartmeter.timer が停止しているか、Wi-SUN モジュールと通信できていない。
+                    systemctl status zabbix-smartmeter.timer
+                    journalctl -u zabbix-smartmeter.service -n 50
+              tags:
+                - tag: scope
+                  value: availability
+      macros:
+        - macro: '{$SMARTMETER.JSON_PATH}'
+          value: /var/lib/zabbix/smartmeter.json
+          description: zabbix-smartmeter が書き出す JSON ファイルのパス。
+        - macro: '{$SMARTMETER.POWER.MAX}'
+          value: '5000'
+          description: 瞬時電力の警告閾値 [W]。契約容量に合わせて調整する。
+        - macro: '{$SMARTMETER.STALE}'
+          value: 10m
+          description: データが更新されない状態を異常とみなすまでの時間。

@@ -1,0 +1,30 @@
+# /etc/sysconfig/zabbix-smartmeter
+# zabbix-smartmeter.service が読み込む設定。値は zabbix-smartmeter の
+# コマンドラインオプションと1対1で対応する（--device なら SMARTMETER_DEVICE）。
+#
+# このファイルにはBルート認証情報が含まれるため、パーミッションは 0640 のままにすること。
+
+# Wi-SUNモジュールのシリアルポート。udevで固定名を付けた場合は /dev/wisun0 など。
+SMARTMETER_DEVICE=/dev/ttyUSB0
+
+# 電力会社から通知されたBルートID（32桁）とパスワード。
+SMARTMETER_ID=
+SMARTMETER_PASSWORD=
+
+# UDG-1-WSNE など Dual Stack Edition のモジュールでは true にする。
+SMARTMETER_DSE=false
+
+# --scan で判明したチャンネルとIPv6アドレスを設定すると接続が速くなる（任意）。
+#SMARTMETER_CHANNEL=
+#SMARTMETER_IPADDR=
+
+# ECHONET Liteクエリ1回あたりのタイムアウト。
+SMARTMETER_TIMEOUT=60s
+
+# ログの詳細度（0:quiet 〜 3:debug）。
+SMARTMETER_VERBOSITY=1
+
+# 出力先。Zabbix agentが読めるディレクトリを指定する。
+#SMARTMETER_OUTPUT=/var/lib/zabbix/smartmeter.json
+# 変更する場合は systemctl edit zabbix-smartmeter.service で ReadWritePaths と
+# ExecStartPre のパスも合わせて上書きすること。

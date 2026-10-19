@@ -1,0 +1,12 @@
+# Wi-SUNモジュールに固定のデバイス名を割り当てるためのudevルール。
+#
+# USBポートの抜き差しや再起動で /dev/ttyUSB0 と /dev/ttyUSB1 が入れ替わる環境では、
+# 以下を有効にして /dev/wisun0 を使うと安定する。
+#
+# 自分のモジュールのidVendor / idProduct / serialは次のコマンドで調べる。
+#   udevadm info --name=/dev/ttyUSB0 --attribute-walk | grep -E 'idVendor|idProduct|serial'
+#
+# 調べた値に書き換えてコメントを外し、以下を実行して反映する。
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+#SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", SYMLINK+="wisun0", GROUP="dialout", MODE="0660"

@@ -1,0 +1,118 @@
+# https://goreleaser.com
+version: 2
+
+project_name: zabbix-smartmeter
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: zabbix-smartmeter
+    main: .
+    binary: zabbix-smartmeter
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - "386"
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - "6"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/serkenn/zabbix-smartmeter/lib.version={{ .Version }}
+
+archives:
+  - id: zip
+    formats:
+      - zip
+    # 既存のリリースと同じ命名規則（例: zabbix-smartmeter_linux-amd64.zip）を維持する。
+    name_template: >-
+      {{ .ProjectName }}_{{ .Os }}-{{ if eq .Arch "arm" }}armhf{{ else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - docs/almalinux.md
+      - packaging/**/*
+      - zabbix/zabbix_smartmeter_template.yaml
+      - zabbix/zabbix_smartmeter_template.xml
+      - zabbix/userparameter_smartmeter.conf
+
+nfpms:
+  - id: packages
+    package_name: zabbix-smartmeter
+    vendor: serkenn
+    homepage: https://github.com/serkenn/zabbix-smartmeter
+    maintainer: serkenn <8makenchan@gmail.com>
+    description: |-
+      Smart meter (B-route) power metrics collector for Zabbix and Mackerel.
+      USB接続のWi-SUNモジュール経由でスマートメーターから電力情報を取得する。
+    license: MIT
+    formats:
+      - rpm
+      - deb
+    # RPM/deb それぞれの慣習的なファイル名にする
+    # (zabbix-smartmeter-0.1.0-1.x86_64.rpm / zabbix-smartmeter_0.1.0_arm64.deb)
+    file_name_template: "{{ .ConventionalFileName }}"
+    bindir: /usr/bin
+    contents:
+      - src: packaging/systemd/zabbix-smartmeter.service
+        dst: /usr/lib/systemd/system/zabbix-smartmeter.service
+      - src: packaging/systemd/zabbix-smartmeter.timer
+        dst: /usr/lib/systemd/system/zabbix-smartmeter.timer
+      - src: packaging/sysconfig/zabbix-smartmeter
+        dst: /etc/sysconfig/zabbix-smartmeter
+        type: "config|noreplace"
+        file_info:
+          mode: 0640
+      - src: packaging/udev/99-zabbix-smartmeter.rules
+        dst: /etc/udev/rules.d/99-zabbix-smartmeter.rules
+        type: "config|noreplace"
+      - src: zabbix/zabbix_smartmeter_template.yaml
+        dst: /usr/share/zabbix-smartmeter/zabbix_smartmeter_template.yaml
+      - src: zabbix/zabbix_smartmeter_template.xml
+        dst: /usr/share/zabbix-smartmeter/zabbix_smartmeter_template.xml
+      - src: zabbix/userparameter_smartmeter.conf
+        dst: /usr/share/zabbix-smartmeter/userparameter_smartmeter.conf
+      - src: docs/almalinux.md
+        dst: /usr/share/doc/zabbix-smartmeter/almalinux.md
+      - src: README.md
+        dst: /usr/share/doc/zabbix-smartmeter/README.md
+    scripts:
+      postinstall: packaging/rpm/postinstall.sh
+      preremove: packaging/rpm/preremove.sh
+      postremove: packaging/rpm/postremove.sh
+    rpm:
+      summary: Smart meter (B-route) power metrics collector for Zabbix
+      group: Applications/System
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  draft: false
+  prerelease: auto
+  footer: |
+    ## インストール
+
+    AlmaLinux / RHEL 系: `sudo dnf install ./zabbix-smartmeter-*.x86_64.rpm`
+    その他: `zabbix-smartmeter_linux-<arch>.zip` を展開して `/usr/local/bin` などに配置
+
+    セットアップ手順は [docs/almalinux.md](https://github.com/serkenn/zabbix-smartmeter/blob/master/docs/almalinux.md) を参照してください。

@@ -1,6 +1,8 @@
+// Command zabbix-smartmeter はUSB接続のWi-SUNモジュール経由でスマートメーター
+// （Bルート）から電力情報を取得し、Zabbix向けのJSONまたはMackerelプラグイン
+// 形式で出力する。
 package main
 
-// importの前に "mpsm" を付けて、この名前で使うことを宣言します
 import mpsm "github.com/serkenn/zabbix-smartmeter/lib"
 
 func main() {

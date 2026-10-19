@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect smart meter (B-route) metrics periodically
+Documentation=https://github.com/serkenn/zabbix-smartmeter
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Unit=zabbix-smartmeter.service
+
+[Install]
+WantedBy=timers.target
