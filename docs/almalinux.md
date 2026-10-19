@@ -189,32 +189,84 @@ B ルートは 1 分より短い間隔での連続取得に向きません。
 
 ## 6. SELinux
 
-AlmaLinux は既定で SELinux が Enforcing です。本構成で必要なのは、JSON ファイルに
-`zabbix_var_lib_t` のラベルが付いていることだけです。RPM の postinstall で `restorecon` を実行していますが、
-パスを変えた場合などは手動で確認してください。
+AlmaLinux は既定で SELinux が Enforcing です。**`zabbix_agentd` を使う場合は、
+ポリシーモジュールの追加が 1 回だけ必要です。**
+
+### なぜ必要か
+
+`/var/lib/zabbix` に付く `zabbix_var_lib_t` は Zabbix **サーバー** 用の型で、
+拘束された agent（`zabbix_agentd` は `zabbix_agent_t` で動く）には読み取りが
+与えられていません。そのため `vfs.file.contents[]` が次の拒否で失敗します。
+
+```
+avc: denied { read } for comm="zabbix_agentd" name="smartmeter.json"
+  scontext=system_u:system_r:zabbix_agent_t:s0
+  tcontext=system_u:object_r:zabbix_var_lib_t:s0 tclass=file permissive=0
+```
+
+Zabbix フロントエンドには `Cannot open file: [13] Permission denied` と表示されます。
+パーミッションは正しくても（ファイルは `0644 root:root`、ディレクトリは `0755 zabbix:zabbix`）
+起きるので、`ls -l` だけでは原因が分かりません。
+
+> `zabbix_agent2` は SELinux ポリシーを同梱しておらず `unconfined_service_t` で動くため
+> （[ZBX-23058](https://support.zabbix.com/browse/ZBX-23058)）、この拒否は起きません。
+> agent2 を使っている場合はこの節を飛ばせます。
+
+### 対処 1: 実際の拒否からモジュールを作る（推奨）
+
+自分の環境で起きた拒否だけを許可するので確実です。
+
+```bash
+sudo dnf install -y policycoreutils-python-utils
+
+# 追加されるルールを先に確認する
+sudo ausearch -m AVC -ts today -c zabbix_agentd | audit2allow
+
+# 問題なければモジュール化して読み込む
+sudo ausearch -m AVC -ts today -c zabbix_agentd | audit2allow -M zabbix-smartmeter-local
+sudo semodule -i zabbix-smartmeter-local.pp
+```
+
+`-c zabbix_agentd` で絞るのは、agent が `system.users` などで起動する `who` の拒否を
+一緒に許可してしまわないためです。
+
+### 対処 2: 同梱のポリシーを使う
+
+[`packaging/selinux/zabbix_smartmeter.te`](../packaging/selinux/zabbix_smartmeter.te)
+に同じ内容を最小のモジュールとして置いています（RPM では
+`/usr/share/zabbix-smartmeter/selinux/zabbix_smartmeter.te`）。
+
+```bash
+sudo dnf install -y checkpolicy policycoreutils-devel
+checkmodule -M -m -o zabbix_smartmeter.mod zabbix_smartmeter.te
+semodule_package -o zabbix_smartmeter.pp -m zabbix_smartmeter.mod
+sudo semodule -i zabbix_smartmeter.pp
+```
+
+どちらの方法も、agent に `/var/lib/zabbix` 配下の読み取りを許可します。サーバーと agent を
+同じホストで動かしている場合、agent からサーバーのデータファイルも読めるようになります。
+
+### 専用の型を使う（より権限を絞る）
+
+出力先だけを別の型にして、その型の読み取りだけを許可する方法もあります。手数は増えますが、
+agent に `/var/lib/zabbix` 全体の読み取りを与えずに済みます。`selinux-policy-devel` の
+refpolicy マクロで型を定義し、出力先のパスにその型を割り当ててください。
+
+### ラベルの確認
+
+出力先を `/var/lib/zabbix` 以外に変えた場合は、ラベルも合わせます。
 
 ```bash
 ls -Z /var/lib/zabbix/smartmeter.json
-# system_u:object_r:zabbix_var_lib_t:s0 ... なら OK
 sudo restorecon -Rv /var/lib/zabbix
-```
 
-`/var/lib/zabbix` 以外に出力する場合は、そのパスに同じラベルを割り当てます。
-
-```bash
+# 別のパスに出力する場合
 sudo semanage fcontext -a -t zabbix_var_lib_t '/opt/smartmeter(/.*)?'
 sudo restorecon -Rv /opt/smartmeter
 ```
 
-収集サービス側（systemd から起動され `unconfined_service_t` で動く）はシリアルポートにアクセスできます。
-それでも拒否される場合は、まず何が拒否されたかを確認してください。
-
-```bash
-sudo ausearch -m AVC -ts recent
-# 必要なら拒否内容からモジュールを生成して読み込む
-sudo ausearch -m AVC -ts recent | audit2allow -M zabbix-smartmeter-local
-sudo semodule -i zabbix-smartmeter-local.pp
-```
+収集サービス側は systemd から起動され `unconfined_service_t` で動くため、
+シリアルポートへのアクセスは追加のポリシーなしで通ります。
 
 > `setenforce 0` で運用するのは避けてください。原因の切り分け時のみ一時的に使い、
 > 判明したら上記の手順でポリシーを調整します。
@@ -287,7 +339,8 @@ CapabilityBoundingSet=
 
 | 症状 | 確認すること |
 | --- | --- |
-| Item が Not supported | `ls -Z /var/lib/zabbix/smartmeter.json` でラベル、`sudo -u zabbix cat ...` で読めるか |
+| `Cannot open file: [13] Permission denied` | `zabbix_agentd` なら SELinux のポリシーモジュールが必要（上記 6 節）。`sudo ausearch -m AVC -ts today -c zabbix_agentd` で確認 |
+| Item が Not supported | 上記の AVC を確認。`sudo -u zabbix cat ...` は呼び出し元のコンテキストで動くため、成功しても agent から読めるとは限らない |
 | JSON が更新されない | `systemctl status zabbix-smartmeter.timer`、`journalctl -u zabbix-smartmeter.service` |
 | `failed to open "/dev/ttyUSB0"` | デバイスの存在と権限。`DeviceAllow` を増やす必要がないか |
 | `FAIL ER05` | `SMARTMETER_IPADDR` に MAC アドレスを設定していないか（上記 4 節） |

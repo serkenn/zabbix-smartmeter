@@ -80,6 +80,8 @@ nfpms:
         dst: /usr/share/zabbix-smartmeter/zabbix_smartmeter_template.xml
       - src: zabbix/userparameter_smartmeter.conf
         dst: /usr/share/zabbix-smartmeter/userparameter_smartmeter.conf
+      - src: packaging/selinux/zabbix_smartmeter.te
+        dst: /usr/share/zabbix-smartmeter/selinux/zabbix_smartmeter.te
       - src: docs/almalinux.md
         dst: /usr/share/doc/zabbix-smartmeter/almalinux.md
       - src: README.md

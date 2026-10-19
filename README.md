@@ -82,6 +82,11 @@ systemd timer ──> zabbix-smartmeter --json --output /var/lib/zabbix/smartmet
 - SELinux で `zabbix_agent_t` からシリアルポートを開く必要がありません
 - B ルートのパスワードを Zabbix 側に持たせずに済みます
 
+> AlmaLinux / RHEL 系で `zabbix_agentd`（agent2 ではない）を使う場合、SELinux のポリシーモジュールを
+> 1 回だけ追加する必要があります。既定ポリシーでは `zabbix_agent_t` から `zabbix_var_lib_t` を読めず、
+> `Cannot open file: [13] Permission denied` になります。手順は
+> [docs/almalinux.md](docs/almalinux.md#6-selinux) にあります。
+
 テンプレートは [`zabbix/`](zabbix/) にあります。
 
 | ファイル | 用途 |

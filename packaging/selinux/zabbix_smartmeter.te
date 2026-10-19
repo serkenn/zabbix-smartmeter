@@ -1,0 +1,37 @@
+# zabbix_agentd（zabbix_agent_t）が zabbix-smartmeter の出力した JSON を読めるようにする
+# 最小のポリシーモジュール。
+#
+# AlmaLinux / RHEL 9 の既定ポリシーでは、/var/lib/zabbix に付く zabbix_var_lib_t は
+# Zabbix *サーバー* 用の型で、拘束された agent には読み取りが与えられていない。
+# そのため vfs.file.contents[] が次の拒否で失敗する。
+#
+#   avc: denied { read } for comm="zabbix_agentd" name="smartmeter.json"
+#     scontext=system_u:system_r:zabbix_agent_t:s0
+#     tcontext=system_u:object_r:zabbix_var_lib_t:s0 tclass=file
+#
+# 組み込み方（policycoreutils-devel と checkpolicy が必要）:
+#
+#   checkmodule -M -m -o zabbix_smartmeter.mod zabbix_smartmeter.te
+#   semodule_package -o zabbix_smartmeter.pp -m zabbix_smartmeter.mod
+#   sudo semodule -i zabbix_smartmeter.pp
+#
+# 取り外す場合:
+#
+#   sudo semodule -r zabbix_smartmeter
+#
+# 注意: このモジュールは agent に /var/lib/zabbix 配下（zabbix_var_lib_t）の
+# 読み取りを許可する。サーバーと agent を同じホストで動かしている場合、agent から
+# サーバーのデータファイルも読めるようになる。それを避けたい場合は
+# docs/almalinux.md の「専用の型を使う」を参照。
+
+module zabbix_smartmeter 1.0;
+
+require {
+    type zabbix_agent_t;
+    type zabbix_var_lib_t;
+    class dir { getattr open read search };
+    class file { getattr open read };
+}
+
+allow zabbix_agent_t zabbix_var_lib_t:dir { getattr open read search };
+allow zabbix_agent_t zabbix_var_lib_t:file { getattr open read };
