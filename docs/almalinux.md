@@ -141,8 +141,27 @@ sudo /usr/bin/zabbix-smartmeter --scan --dse \
   --device /dev/ttyUSB0 --id 'BルートID' --password 'Bルートパスワード'
 ```
 
-チャンネルと IPv6 アドレスが判明したら `/etc/sysconfig/zabbix-smartmeter` の
-`SMARTMETER_CHANNEL` / `SMARTMETER_IPADDR` に設定しておくと、毎回のスキャンが省けて収集が速くなります。
+成功すると次のような出力になります。
+
+```
+<< "EPANDESC"
+<<   "  Channel:3B"            ← SMARTMETER_CHANNEL に設定する値
+<<   "  Pan ID:04E9"
+<<   "  Addr:60D51BFFFE26AF9E" ← MACアドレス。SMARTMETER_IPADDR ではない
+>> "SKLL64 60D51BFFFE26AF9E"
+<< "FE80:0000:0000:0000:62D5:1BFF:FE26:AF9E"   ← SMARTMETER_IPADDR に設定する値
+```
+
+この 2 つを `/etc/sysconfig/zabbix-smartmeter` に設定しておくと、毎回のスキャンが省けて収集が速くなります。
+
+```sh
+SMARTMETER_CHANNEL=3B
+SMARTMETER_IPADDR=FE80:0000:0000:0000:62D5:1BFF:FE26:AF9E
+```
+
+> `Addr:` の値（MACアドレス）を `SMARTMETER_IPADDR` に入れると、`SKSENDTO` の宛先が不正になり
+> `SK command response error: FAIL ER05` で失敗します。最後の `SKLL64` の応答にある
+> `FE80:` で始まる値を使ってください。
 
 続いて 1 回だけ収集してみます。
 
@@ -228,10 +247,32 @@ agent を再起動してください。
 既定ではシリアルポートへのアクセス権の問題を避けるため root で動かしていますが、
 専用ユーザーに切り替えられます。
 
+一番簡単なのは `zabbix` ユーザーで動かす方法です。出力先 `/var/lib/zabbix` の所有者と
+一致するため、ディレクトリのパーミッション調整も `CAP_DAC_OVERRIDE` も要りません。
+
+```bash
+sudo systemctl edit zabbix-smartmeter.service
+```
+
+```ini
+[Service]
+User=zabbix
+Group=zabbix
+# シリアルポートを読むために必要
+SupplementaryGroups=dialout
+# 所有者が一致するので特権は不要
+CapabilityBoundingSet=
+```
+
+`/etc/sysconfig/zabbix-smartmeter` は systemd が権限を落とす前に root として読むので、
+0640 のままで問題ありません。
+
+専用ユーザーを作る場合は、出力先に書き込める状態にしてください。
+
 ```bash
 sudo useradd --system --no-create-home --shell /sbin/nologin smartmeter
 sudo usermod -aG dialout smartmeter
-sudo systemctl edit zabbix-smartmeter.service
+sudo setfacl -m u:smartmeter:rwx /var/lib/zabbix
 ```
 
 ```ini
@@ -239,12 +280,8 @@ sudo systemctl edit zabbix-smartmeter.service
 User=smartmeter
 Group=smartmeter
 SupplementaryGroups=dialout
-# JSON の出力先に書き込めるようにする
-ReadWritePaths=/var/lib/zabbix
+CapabilityBoundingSet=
 ```
-
-`/var/lib/zabbix` に書き込めるよう、ディレクトリのパーミッションも調整してください
-（例: `sudo setfacl -m u:smartmeter:rwx /var/lib/zabbix`）。
 
 ## 9. トラブルシューティング
 
@@ -253,6 +290,8 @@ ReadWritePaths=/var/lib/zabbix
 | Item が Not supported | `ls -Z /var/lib/zabbix/smartmeter.json` でラベル、`sudo -u zabbix cat ...` で読めるか |
 | JSON が更新されない | `systemctl status zabbix-smartmeter.timer`、`journalctl -u zabbix-smartmeter.service` |
 | `failed to open "/dev/ttyUSB0"` | デバイスの存在と権限。`DeviceAllow` を増やす必要がないか |
+| `FAIL ER05` | `SMARTMETER_IPADDR` に MAC アドレスを設定していないか（上記 4 節） |
+| `failed to create temp file in "/var/lib/zabbix": permission denied` | ユニットの `CapabilityBoundingSet` に `CAP_DAC_OVERRIDE` があるか。`/var/lib/zabbix` は `zabbix` 所有のため root でも必要 |
 | `scan failed: id not specified` | B ルート ID が空。設定ファイルを読み込んでから実行する（上記 4 節） |
 | スキャンでメーターが見つからない | B ルート ID / パスワードの誤り、`--dse` の付け忘れ、モジュールの設置場所 |
 | `total_normal` が極端な値 | メーターが係数(0xD3)・単位(0xE1)を返しているか。`--verbosity 3` でログを確認 |

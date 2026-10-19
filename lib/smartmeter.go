@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"log/syslog"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -183,6 +184,16 @@ func Run(args []string) error {
 				"or set SMARTMETER_ID and SMARTMETER_PASSWORD " +
 				"(on RPM installs they live in /etc/sysconfig/zabbix-smartmeter; " +
 				`run: sudo bash -c 'set -a; . /etc/sysconfig/zabbix-smartmeter; set +a; zabbix-smartmeter --scan')`)
+	}
+
+	// スキャン結果の "Addr:" 行（MACアドレス）を取り違えて渡す事故が起きやすい。
+	// そのままだと SKSENDTO の宛先が不正になり FAIL ER05 で失敗するため、先に弾く。
+	if opt.ipAddr != "" && net.ParseIP(opt.ipAddr) == nil {
+		return fmt.Errorf(
+			"invalid --ipaddr / SMARTMETER_IPADDR %q: it must be the meter's IPv6 address "+
+				`(the "FE80:..." value that --scan resolves with SKLL64), `+
+				`not the MAC address shown on the scan's "Addr:" line`,
+			opt.ipAddr)
 	}
 
 	logWriter, closeLog, err := newLogWriter(opt)

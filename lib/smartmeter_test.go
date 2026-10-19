@@ -310,3 +310,35 @@ func TestRunLeavesStandardStreamsOpen(t *testing.T) {
 		})
 	}
 }
+
+func TestRunRejectsNonIPAddr(t *testing.T) {
+	// スキャン出力の "Addr:" 行（MACアドレス）を渡すと SKSENDTO が FAIL ER05 になる。
+	// シリアルポートを開く前に、取り違えを名指しするエラーで止まること。
+	err := Run([]string{"-device", "/nonexistent/tty", "-ipaddr", "60D51BFFFE26AF9E"})
+	if err == nil {
+		t.Fatal("Run() returned nil error for a MAC address passed as -ipaddr")
+	}
+	for _, want := range []string{"SMARTMETER_IPADDR", "60D51BFFFE26AF9E", "MAC address"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+}
+
+func TestRunAcceptsIPv6Addr(t *testing.T) {
+	// --scan が解決する形式のIPv6はそのまま通り、デバイスを開く段階まで進む。
+	for _, addr := range []string{
+		"FE80:0000:0000:0000:62D5:1BFF:FE26:AF9E",
+		"fe80::62d5:1bff:fe26:af9e",
+	} {
+		t.Run(addr, func(t *testing.T) {
+			err := Run([]string{"-device", "/nonexistent/tty", "-log", "stderr", "-ipaddr", addr})
+			if err == nil {
+				t.Fatal("Run() returned nil error for a missing device")
+			}
+			if !strings.Contains(err.Error(), "failed to open") {
+				t.Errorf("IPv6 address %q was rejected: %v", addr, err)
+			}
+		})
+	}
+}

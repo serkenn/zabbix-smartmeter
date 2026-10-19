@@ -12,7 +12,8 @@ EnvironmentFile=/etc/sysconfig/zabbix-smartmeter
 
 # Zabbix agentが読めるディレクトリを用意する。
 # "+" を付けた行はサンドボックスの外で実行される。
-ExecStartPre=+/usr/bin/install -d -m 0755 /var/lib/zabbix
+# zabbix-agentが既に作っている場合は所有者とパーミッションに触らない。
+ExecStartPre=+/bin/sh -c 'test -d /var/lib/zabbix || install -d -m 0755 /var/lib/zabbix'
 ExecStart=/usr/bin/zabbix-smartmeter --json --log stderr
 TimeoutStartSec=180
 
@@ -34,7 +35,11 @@ MemoryDenyWriteExecute=true
 LockPersonality=true
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
-CapabilityBoundingSet=
+# /var/lib/zabbix は zabbix-agent が zabbix:zabbix 0755 で作るため、
+# rootであっても書き込みには CAP_DAC_OVERRIDE が要る。これを落とすと
+# "failed to create temp file in \"/var/lib/zabbix\": permission denied" になる。
+# 非rootで動かす場合（docs/almalinux.md 参照）は所有者が一致するため不要。
+CapabilityBoundingSet=CAP_DAC_OVERRIDE
 AmbientCapabilities=
 
 # シリアルポートのみアクセスを許可する。
