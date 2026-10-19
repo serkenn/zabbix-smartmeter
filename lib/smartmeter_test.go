@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -137,39 +138,57 @@ func TestRunJSONWritesParsableFile(t *testing.T) {
 }
 
 func TestNewLogWriter(t *testing.T) {
-	t.Run("scanモードは標準出力", func(t *testing.T) {
-		w, err := newLogWriter(&options{scanMode: true, logTarget: "syslog"})
-		if err != nil {
-			t.Fatalf("newLogWriter() returned error: %v", err)
-		}
-		if w != os.Stdout {
-			t.Errorf("newLogWriter() = %v, want os.Stdout", w)
-		}
-	})
+	// 標準出力・標準エラー出力を返す場合、後始末でそれらを閉じてはいけない。
+	// *os.File は io.Closer を満たすため、取り違えるとプロセスの標準出力が閉じる。
+	tests := []struct {
+		name       string
+		env        map[string]string
+		opt        *options
+		wantWriter *os.File
+	}{
+		{
+			name:       "scanモードは標準出力",
+			opt:        &options{scanMode: true, logTarget: "syslog"},
+			wantWriter: os.Stdout,
+		},
+		{
+			name:       "stderr指定",
+			opt:        &options{logTarget: "stderr"},
+			wantWriter: os.Stderr,
+		},
+		{
+			name:       "systemd配下のautoはstderr",
+			env:        map[string]string{"JOURNAL_STREAM": "8:123456"},
+			opt:        &options{logTarget: "auto"},
+			wantWriter: os.Stderr,
+		},
+	}
 
-	t.Run("stderr指定", func(t *testing.T) {
-		w, err := newLogWriter(&options{logTarget: "stderr"})
-		if err != nil {
-			t.Fatalf("newLogWriter() returned error: %v", err)
-		}
-		if w != os.Stderr {
-			t.Errorf("newLogWriter() = %v, want os.Stderr", w)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+			w, closeLog, err := newLogWriter(tt.opt)
+			if err != nil {
+				t.Fatalf("newLogWriter() returned error: %v", err)
+			}
+			if w != tt.wantWriter {
+				t.Errorf("newLogWriter() = %v, want %v", w, tt.wantWriter)
+			}
+			if closeLog == nil {
+				t.Fatal("newLogWriter() returned a nil cleanup function")
+			}
 
-	t.Run("systemd配下のautoはstderr", func(t *testing.T) {
-		t.Setenv("JOURNAL_STREAM", "8:123456")
-		w, err := newLogWriter(&options{logTarget: "auto"})
-		if err != nil {
-			t.Fatalf("newLogWriter() returned error: %v", err)
-		}
-		if w != os.Stderr {
-			t.Errorf("newLogWriter() = %v, want os.Stderr", w)
-		}
-	})
+			closeLog()
+			if _, err := tt.wantWriter.Write(nil); err != nil {
+				t.Errorf("cleanup closed %v: %v", tt.wantWriter, err)
+			}
+		})
+	}
 
 	t.Run("不正な値はエラー", func(t *testing.T) {
-		if _, err := newLogWriter(&options{logTarget: "nowhere"}); err == nil {
+		if _, _, err := newLogWriter(&options{logTarget: "nowhere"}); err == nil {
 			t.Fatal("newLogWriter() returned nil error for an invalid target")
 		}
 	})
@@ -214,5 +233,80 @@ func TestEnvHelpers(t *testing.T) {
 	t.Setenv("ZSM_TEST_DURATION", "90s")
 	if got := envDuration("ZSM_TEST_DURATION", 0); got != 90*time.Second {
 		t.Errorf("envDuration() = %v, want 90s", got)
+	}
+}
+
+func TestRunScanModeRequiresCredentials(t *testing.T) {
+	// 認証情報が無いまま --scan するとライブラリ側で "id not specified" になる。
+	// シリアルポートを触る前に、設定場所の分かるエラーで止まることを確認する。
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "両方無し", args: []string{"-scan", "-device", "/dev/null"}},
+		{name: "IDのみ", args: []string{"-scan", "-device", "/dev/null", "-id", "x"}},
+		{name: "パスワードのみ", args: []string{"-scan", "-device", "/dev/null", "-password", "x"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("SMARTMETER_ID", "")
+			t.Setenv("SMARTMETER_PASSWORD", "")
+
+			err := Run(tt.args)
+			if err == nil {
+				t.Fatal("Run() returned nil error without credentials")
+			}
+			for _, want := range []string{"--id", "SMARTMETER_ID", "/etc/sysconfig/zabbix-smartmeter"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not mention %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestRunScanModeAcceptsEnvCredentials(t *testing.T) {
+	// 環境変数で渡した場合はこのチェックを通過し、デバイスを開く段階まで進む。
+	t.Setenv("SMARTMETER_ID", "env-id")
+	t.Setenv("SMARTMETER_PASSWORD", "env-password")
+
+	err := Run([]string{"-scan", "-device", "/nonexistent/tty"})
+	if err == nil {
+		t.Fatal("Run() returned nil error for a missing device")
+	}
+	if strings.Contains(err.Error(), "scan mode needs") {
+		t.Errorf("credentials from the environment were not picked up: %v", err)
+	}
+	if !strings.Contains(err.Error(), "failed to open") {
+		t.Errorf("error %q does not look like a device open failure", err)
+	}
+}
+
+func TestRunLeavesStandardStreamsOpen(t *testing.T) {
+	// Run() がログ出力先として os.Stdout / os.Stderr を受け取った場合に
+	// それを閉じてしまうと、以降プロセス全体で書き込めなくなる。
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "scanモード", args: []string{"-scan", "-device", "/nonexistent/tty"}},
+		{name: "ログをstderrへ", args: []string{"-log", "stderr", "-device", "/nonexistent/tty"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("SMARTMETER_ID", "env-id")
+			t.Setenv("SMARTMETER_PASSWORD", "env-password")
+
+			if err := Run(tt.args); err == nil {
+				t.Fatal("Run() returned nil error for a missing device")
+			}
+			if _, err := os.Stdout.Write(nil); err != nil {
+				t.Errorf("Run() closed os.Stdout: %v", err)
+			}
+			if _, err := os.Stderr.Write(nil); err != nil {
+				t.Errorf("Run() closed os.Stderr: %v", err)
+			}
+		})
 	}
 }

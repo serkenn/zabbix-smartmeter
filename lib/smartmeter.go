@@ -175,13 +175,21 @@ func Run(args []string) error {
 		return nil
 	}
 
-	logWriter, err := newLogWriter(opt)
+	// スキャンは SKSETRBID / SKSETPWD を必ず送るため、ID とパスワードが無いと必ず失敗する。
+	// シリアルポートを開く前に、どこで設定するのかが分かる形で止める。
+	if opt.scanMode && (opt.bRouteID == "" || opt.bRoutePassword == "") {
+		return errors.New(
+			"scan mode needs the B-route ID and password: pass --id and --password, " +
+				"or set SMARTMETER_ID and SMARTMETER_PASSWORD " +
+				"(on RPM installs they live in /etc/sysconfig/zabbix-smartmeter; " +
+				`run: sudo bash -c 'set -a; . /etc/sysconfig/zabbix-smartmeter; set +a; zabbix-smartmeter --scan')`)
+	}
+
+	logWriter, closeLog, err := newLogWriter(opt)
 	if err != nil {
 		return err
 	}
-	if closer, ok := logWriter.(io.Closer); ok {
-		defer closer.Close() //nolint:errcheck // ログの後始末に失敗しても処理結果には影響しない
-	}
+	defer closeLog()
 
 	dev, err := smartmeter.Open(
 		opt.serialPort,
@@ -265,12 +273,18 @@ func writeFileAtomic(name string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
-// newLogWriter はログの出力先を決める。
+// newLogWriter はログの出力先と、その後始末を行う関数を返す。
 // Mackerel/JSONモードでは標準出力にログを混ぜられないため、syslogか標準エラー出力に送る。
-func newLogWriter(opt *options) (io.Writer, error) {
+//
+// 後始末を呼び出し側のio.Closerアサーションに任せてはいけない。os.Stdout と
+// os.Stderr は *os.File なのでio.Closerを満たしてしまい、プロセスの標準出力を
+// 閉じることになる。閉じてよいのはこの関数が開いたsyslog接続だけ。
+func newLogWriter(opt *options) (io.Writer, func(), error) {
+	noop := func() {}
+
 	if opt.scanMode {
 		// scanモードはスキャン結果そのものをログとして標準出力に出す。
-		return os.Stdout, nil
+		return os.Stdout, noop, nil
 	}
 
 	target := opt.logTarget
@@ -285,15 +299,16 @@ func newLogWriter(opt *options) (io.Writer, error) {
 
 	switch target {
 	case "stderr":
-		return os.Stderr, nil
+		return os.Stderr, noop, nil
 	case "syslog":
 		w, err := syslog.New(syslog.LOG_NOTICE|syslog.LOG_USER, path.Base(os.Args[0]))
 		if err != nil {
-			return nil, fmt.Errorf("failed to connect to syslog: %w", err)
+			return nil, nil, fmt.Errorf("failed to connect to syslog: %w", err)
 		}
-		return w, nil
+		// ログの後始末に失敗しても処理結果には影響しないため、エラーは無視する。
+		return w, func() { _ = w.Close() }, nil
 	default:
-		return nil, fmt.Errorf("invalid -log value %q (want auto, syslog or stderr)", opt.logTarget)
+		return nil, nil, fmt.Errorf("invalid -log value %q (want auto, syslog or stderr)", opt.logTarget)
 	}
 }
 
