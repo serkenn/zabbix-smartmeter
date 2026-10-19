@@ -1,0 +1,46 @@
+[Unit]
+Description=Collect smart meter (B-route) metrics for Zabbix
+Documentation=https://github.com/serkenn/zabbix-smartmeter
+ConditionPathExists=/etc/sysconfig/zabbix-smartmeter
+
+[Service]
+Type=oneshot
+
+# 既定値を先に置き、EnvironmentFileで上書きできるようにする（後勝ち）。
+Environment=SMARTMETER_OUTPUT=/var/lib/zabbix/smartmeter.json
+EnvironmentFile=/etc/sysconfig/zabbix-smartmeter
+
+# Zabbix agentが読めるディレクトリを用意する。
+# "+" を付けた行はサンドボックスの外で実行される。
+ExecStartPre=+/usr/bin/install -d -m 0755 /var/lib/zabbix
+ExecStart=/usr/bin/zabbix-smartmeter --json --log stderr
+TimeoutStartSec=180
+
+# Wi-SUNモジュールへのアクセス権の都合でrootで動かすが、権限は以下で絞り込む。
+# 非rootで動かす方法は docs/almalinux.md を参照。
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/zabbix
+PrivateTmp=true
+PrivateNetwork=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+LockPersonality=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# シリアルポートのみアクセスを許可する。
+DevicePolicy=closed
+DeviceAllow=char-ttyUSB rw
+DeviceAllow=char-ttyACM rw
+
+[Install]
+WantedBy=multi-user.target

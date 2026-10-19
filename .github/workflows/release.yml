@@ -1,73 +1,32 @@
-name: Release Go Project Package
+name: Release
+
 on:
   push:
     tags:
-      - v*
+      - "v*"
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  create_release:
-    name: Create release
+  goreleaser:
+    name: GoReleaser
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    permissions:
+      contents: write
     steps:
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
-
-  release_packages:
-    name: Release packages
-    needs: create_release
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-        - os: linux-386
-          goos: linux
-          arch: 386
-        - os: linux-amd64
-          goos: linux
-          arch: amd64
-        - os: linux-armhf
-          goos: linux
-          arch: arm
-          goarm: 6
-        - os: linux-arm64
-          goos: linux
-          arch: arm64
-    steps:
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.21'
-    - name: Checkout repo
-      uses: actions/checkout@v4
-    - name: Build / Archive
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.arch }}
-        GOARM: ${{ matrix.goarm }}
-      run: |
-        mkdir dist
-        cp README.md LICENSE dist/
-        go build -ldflags="-s -w" -v -o dist/ .
-        zip -j -r release dist
-    - name: Upload packages
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ needs.create_release.outputs.upload_url }}
-        asset_path: release.zip
-        asset_name: ${{ github.event.repository.name }}_${{ matrix.os }}.zip
-        asset_content_type: application/zip
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
