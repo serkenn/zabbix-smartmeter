@@ -33,6 +33,9 @@ zabbix-smartmeter をインストールしました。
        sudo systemctl enable --now zabbix-smartmeter.timer
   4. Zabbixにテンプレートを取り込む
        /usr/share/zabbix-smartmeter/zabbix_smartmeter_template.yaml
+  5. zabbix_agentd を使う場合は SELinux のポリシーを1回だけ追加する
+       （agent2 は unconfined で動くため不要）
+       /usr/share/zabbix-smartmeter/selinux/zabbix_smartmeter.te
 
 詳しい手順は /usr/share/doc/zabbix-smartmeter/almalinux.md を参照してください。
 
