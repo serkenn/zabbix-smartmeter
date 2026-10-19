@@ -122,10 +122,23 @@ UDG-1-WSNE（NTT 東日本／西日本の「見えるでんき」USB アダプ�
 
 まずスキャンでスマートメーターが見つかるか確認します（数分かかります）。
 
+設定ファイルを読み込んでから実行します。`/etc/sysconfig/zabbix-smartmeter` は root しか
+読めない 0640 なので、`sudo` の内側で読み込むのがポイントです。認証情報がコマンドラインに
+出ないので、`ps` や shell の履歴にも残りません。
+
+```bash
+sudo bash -c 'set -a; . /etc/sysconfig/zabbix-smartmeter; set +a; /usr/bin/zabbix-smartmeter --scan'
+```
+
+> 設定ファイルを読み込まずに `--id "$SMARTMETER_ID"` のようにシェル変数を渡すと、
+> 変数が空のまま展開されて `scan failed: id not specified` になります。
+> `sudo` は既定で環境変数を引き継がないため、`export` しただけでも同じです。
+
+オプションを直接渡して試すこともできます。この場合はパスワードが履歴に残る点に注意してください。
+
 ```bash
 sudo /usr/bin/zabbix-smartmeter --scan --dse \
-  --device /dev/ttyUSB0 \
-  --id "$SMARTMETER_ID" --password "$SMARTMETER_PASSWORD"
+  --device /dev/ttyUSB0 --id 'BルートID' --password 'Bルートパスワード'
 ```
 
 チャンネルと IPv6 アドレスが判明したら `/etc/sysconfig/zabbix-smartmeter` の
@@ -240,6 +253,7 @@ ReadWritePaths=/var/lib/zabbix
 | Item が Not supported | `ls -Z /var/lib/zabbix/smartmeter.json` でラベル、`sudo -u zabbix cat ...` で読めるか |
 | JSON が更新されない | `systemctl status zabbix-smartmeter.timer`、`journalctl -u zabbix-smartmeter.service` |
 | `failed to open "/dev/ttyUSB0"` | デバイスの存在と権限。`DeviceAllow` を増やす必要がないか |
+| `scan failed: id not specified` | B ルート ID が空。設定ファイルを読み込んでから実行する（上記 4 節） |
 | スキャンでメーターが見つからない | B ルート ID / パスワードの誤り、`--dse` の付け忘れ、モジュールの設置場所 |
 | `total_normal` が極端な値 | メーターが係数(0xD3)・単位(0xE1)を返しているか。`--verbosity 3` でログを確認 |
 

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -214,5 +215,51 @@ func TestEnvHelpers(t *testing.T) {
 	t.Setenv("ZSM_TEST_DURATION", "90s")
 	if got := envDuration("ZSM_TEST_DURATION", 0); got != 90*time.Second {
 		t.Errorf("envDuration() = %v, want 90s", got)
+	}
+}
+
+func TestRunScanModeRequiresCredentials(t *testing.T) {
+	// 認証情報が無いまま --scan するとライブラリ側で "id not specified" になる。
+	// シリアルポートを触る前に、設定場所の分かるエラーで止まることを確認する。
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "両方無し", args: []string{"-scan", "-device", "/dev/null"}},
+		{name: "IDのみ", args: []string{"-scan", "-device", "/dev/null", "-id", "x"}},
+		{name: "パスワードのみ", args: []string{"-scan", "-device", "/dev/null", "-password", "x"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("SMARTMETER_ID", "")
+			t.Setenv("SMARTMETER_PASSWORD", "")
+
+			err := Run(tt.args)
+			if err == nil {
+				t.Fatal("Run() returned nil error without credentials")
+			}
+			for _, want := range []string{"--id", "SMARTMETER_ID", "/etc/sysconfig/zabbix-smartmeter"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not mention %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestRunScanModeAcceptsEnvCredentials(t *testing.T) {
+	// 環境変数で渡した場合はこのチェックを通過し、デバイスを開く段階まで進む。
+	t.Setenv("SMARTMETER_ID", "env-id")
+	t.Setenv("SMARTMETER_PASSWORD", "env-password")
+
+	err := Run([]string{"-scan", "-device", "/nonexistent/tty"})
+	if err == nil {
+		t.Fatal("Run() returned nil error for a missing device")
+	}
+	if strings.Contains(err.Error(), "scan mode needs") {
+		t.Errorf("credentials from the environment were not picked up: %v", err)
+	}
+	if !strings.Contains(err.Error(), "failed to open") {
+		t.Errorf("error %q does not look like a device open failure", err)
 	}
 }

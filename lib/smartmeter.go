@@ -175,6 +175,16 @@ func Run(args []string) error {
 		return nil
 	}
 
+	// スキャンは SKSETRBID / SKSETPWD を必ず送るため、ID とパスワードが無いと必ず失敗する。
+	// シリアルポートを開く前に、どこで設定するのかが分かる形で止める。
+	if opt.scanMode && (opt.bRouteID == "" || opt.bRoutePassword == "") {
+		return errors.New(
+			"scan mode needs the B-route ID and password: pass --id and --password, " +
+				"or set SMARTMETER_ID and SMARTMETER_PASSWORD " +
+				"(on RPM installs they live in /etc/sysconfig/zabbix-smartmeter; " +
+				`run: sudo bash -c 'set -a; . /etc/sysconfig/zabbix-smartmeter; set +a; zabbix-smartmeter --scan')`)
+	}
+
 	logWriter, err := newLogWriter(opt)
 	if err != nil {
 		return err
