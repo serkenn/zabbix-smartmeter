@@ -13,9 +13,9 @@ from xml.dom import minidom
 
 TEMPLATE = "Template Smartmeter"
 MASTER_KEY = "vfs.file.contents[{$SMARTMETER.JSON_PATH}]"
-POWER_GRAPH = "Smartmeter: Instantaneous power"
-CURRENT_GRAPH = "Smartmeter: Current"
-ENERGY_GRAPH = "Smartmeter: Cumulative energy"
+POWER_GRAPH = "Instantaneous power"
+CURRENT_GRAPH = "Current R/T"
+ENERGY_GRAPH = "Cumulative energy"
 
 def dep(uuid, name, key, jsonpath, value_type, units, desc, tag, extra_steps=None, triggers=None):
     item = {
@@ -105,27 +105,57 @@ macros = [
 ]
 
 dashboards = [{
-    "uuid": "7e669d2e7ca34ed780604cee86db8caa",
-    "name": "Smartmeter: Power and energy",
+    "uuid": "82c7709ef8b04e28931eb28d751c170b",
+    "name": "Smartmeter",
     "pages": [{
-        "name": "Overview",
         "widgets": [
             {
-                "type": "GRAPH_CLASSIC", "width": "24", "height": "5",
+                "type": "ITEM", "name": "瞬時電力", "x": "0", "width": "6", "height": "3",
+                "fields": [{
+                    "type": "ITEM", "name": "itemid",
+                    "value": {"host": TEMPLATE, "key": "smartmeter.power"},
+                }],
+            },
+            {
+                "type": "ITEM", "name": "R相電流", "x": "6", "width": "6", "height": "3",
+                "fields": [{
+                    "type": "ITEM", "name": "itemid",
+                    "value": {"host": TEMPLATE, "key": "smartmeter.current.r"},
+                }],
+            },
+            {
+                "type": "ITEM", "name": "T相電流", "x": "12", "width": "6", "height": "3",
+                "fields": [{
+                    "type": "ITEM", "name": "itemid",
+                    "value": {"host": TEMPLATE, "key": "smartmeter.current.t"},
+                }],
+            },
+            {
+                "type": "ITEM", "name": "積算電力量(買電)", "x": "18", "width": "6", "height": "3",
+                "fields": [{
+                    "type": "ITEM", "name": "itemid",
+                    "value": {"host": TEMPLATE, "key": "smartmeter.total.normal"},
+                }],
+            },
+            {
+                "type": "GRAPH_CLASSIC", "name": "瞬時電力",
+                "x": "0", "y": "3", "width": "12", "height": "6",
                 "fields": [{
                     "type": "GRAPH", "name": "graphid",
                     "value": {"host": TEMPLATE, "name": POWER_GRAPH},
                 }],
             },
             {
-                "type": "GRAPH_CLASSIC", "y": "5", "width": "12", "height": "5",
+                "type": "GRAPH_CLASSIC", "name": "電流 (R/T)",
+                "x": "12", "y": "3", "width": "12", "height": "6",
                 "fields": [{
                     "type": "GRAPH", "name": "graphid",
                     "value": {"host": TEMPLATE, "name": CURRENT_GRAPH},
                 }],
             },
             {
-                "type": "GRAPH_CLASSIC", "x": "12", "y": "5", "width": "12", "height": "5",
+                "type": "GRAPH_CLASSIC", "name": "積算電力量(買電/売電)",
+                "x": "0", "y": "9", "width": "12", "height": "6",
                 "fields": [{
                     "type": "GRAPH", "name": "graphid",
                     "value": {"host": TEMPLATE, "name": ENERGY_GRAPH},
@@ -137,19 +167,16 @@ dashboards = [{
 
 graphs = [
     {
-        "uuid": "7c868f1824fb46b988c560ab76805125",
+        "uuid": "65462e63b602462fbc338a067bb263c4",
         "name": POWER_GRAPH,
-        "show_work_period": "NO",
         "graph_items": [{
-            "color": "E97659",
+            "color": "1A7C11",
             "item": {"host": TEMPLATE, "key": "smartmeter.power"},
         }],
     },
     {
-        "uuid": "3d25dda3ba2a492fa29e326b71372d94",
+        "uuid": "46206cee0bad4d248ee5c5ac8c27e031",
         "name": CURRENT_GRAPH,
-        "show_work_period": "NO",
-        "ymin_type_1": "FIXED",
         "graph_items": [
             {
                 "color": "F63100",
@@ -162,16 +189,15 @@ graphs = [
         ],
     },
     {
-        "uuid": "35174609cbe341fe8e729b40014bcfb9",
+        "uuid": "39c96af60f524b6090eebd87880b3149",
         "name": ENERGY_GRAPH,
-        "show_work_period": "NO",
         "graph_items": [
             {
-                "color": "1976D2",
+                "color": "2774A4",
                 "item": {"host": TEMPLATE, "key": "smartmeter.total.normal"},
             },
             {
-                "sortorder": "1", "color": "4CAF50",
+                "sortorder": "1", "color": "1A7C11",
                 "item": {"host": TEMPLATE, "key": "smartmeter.total.reverse"},
             },
         ],
@@ -180,7 +206,7 @@ graphs = [
 
 export = {
     "version": "6.0",
-    "date": "2026-10-20T00:00:00Z",
+    "date": "2026-10-19T00:00:00Z",
     "groups": [{"uuid": "82531070505b4d729046028882756858", "name": "Templates/Smartmeter Project"}],
     "templates": [{
         "uuid": "0364d262145348879555138138981442",
@@ -192,8 +218,8 @@ export = {
         ),
         "groups": [{"name": "Templates/Smartmeter Project"}],
         "items": items,
-        "macros": macros,
         "dashboards": dashboards,
+        "macros": macros,
     }],
     "graphs": graphs,
 }

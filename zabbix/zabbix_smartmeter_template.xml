@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <zabbix_export>
     <version>6.0</version>
-    <date>2026-10-20T00:00:00Z</date>
+    <date>2026-10-19T00:00:00Z</date>
     <groups>
         <group>
             <uuid>82531070505b4d729046028882756858</uuid>
@@ -239,6 +239,140 @@ https://github.com/serkenn/zabbix-smartmeter</description>
                     </triggers>
                 </item>
             </items>
+            <dashboards>
+                <dashboard>
+                    <uuid>82c7709ef8b04e28931eb28d751c170b</uuid>
+                    <name>Smartmeter</name>
+                    <pages>
+                        <page>
+                            <widgets>
+                                <widget>
+                                    <type>ITEM</type>
+                                    <name>瞬時電力</name>
+                                    <x>0</x>
+                                    <width>6</width>
+                                    <height>3</height>
+                                    <fields>
+                                        <field>
+                                            <type>ITEM</type>
+                                            <name>itemid</name>
+                                            <value>
+                                                <host>Template Smartmeter</host>
+                                                <key>smartmeter.power</key>
+                                            </value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>ITEM</type>
+                                    <name>R相電流</name>
+                                    <x>6</x>
+                                    <width>6</width>
+                                    <height>3</height>
+                                    <fields>
+                                        <field>
+                                            <type>ITEM</type>
+                                            <name>itemid</name>
+                                            <value>
+                                                <host>Template Smartmeter</host>
+                                                <key>smartmeter.current.r</key>
+                                            </value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>ITEM</type>
+                                    <name>T相電流</name>
+                                    <x>12</x>
+                                    <width>6</width>
+                                    <height>3</height>
+                                    <fields>
+                                        <field>
+                                            <type>ITEM</type>
+                                            <name>itemid</name>
+                                            <value>
+                                                <host>Template Smartmeter</host>
+                                                <key>smartmeter.current.t</key>
+                                            </value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>ITEM</type>
+                                    <name>積算電力量(買電)</name>
+                                    <x>18</x>
+                                    <width>6</width>
+                                    <height>3</height>
+                                    <fields>
+                                        <field>
+                                            <type>ITEM</type>
+                                            <name>itemid</name>
+                                            <value>
+                                                <host>Template Smartmeter</host>
+                                                <key>smartmeter.total.normal</key>
+                                            </value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>GRAPH_CLASSIC</type>
+                                    <name>瞬時電力</name>
+                                    <x>0</x>
+                                    <y>3</y>
+                                    <width>12</width>
+                                    <height>6</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>Template Smartmeter</host>
+                                                <name>Instantaneous power</name>
+                                            </value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>GRAPH_CLASSIC</type>
+                                    <name>電流 (R/T)</name>
+                                    <x>12</x>
+                                    <y>3</y>
+                                    <width>12</width>
+                                    <height>6</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>Template Smartmeter</host>
+                                                <name>Current R/T</name>
+                                            </value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                                <widget>
+                                    <type>GRAPH_CLASSIC</type>
+                                    <name>積算電力量(買電/売電)</name>
+                                    <x>0</x>
+                                    <y>9</y>
+                                    <width>12</width>
+                                    <height>6</height>
+                                    <fields>
+                                        <field>
+                                            <type>GRAPH</type>
+                                            <name>graphid</name>
+                                            <value>
+                                                <host>Template Smartmeter</host>
+                                                <name>Cumulative energy</name>
+                                            </value>
+                                        </field>
+                                    </fields>
+                                </widget>
+                            </widgets>
+                        </page>
+                    </pages>
+                </dashboard>
+            </dashboards>
             <macros>
                 <macro>
                     <macro>{$SMARTMETER.JSON_PATH}</macro>
@@ -256,77 +390,15 @@ https://github.com/serkenn/zabbix-smartmeter</description>
                     <description>データが更新されない状態を異常とみなすまでの時間。</description>
                 </macro>
             </macros>
-            <dashboards>
-                <dashboard>
-                    <uuid>7e669d2e7ca34ed780604cee86db8caa</uuid>
-                    <name>Smartmeter: Power and energy</name>
-                    <pages>
-                        <page>
-                            <name>Overview</name>
-                            <widgets>
-                                <widget>
-                                    <type>GRAPH_CLASSIC</type>
-                                    <width>24</width>
-                                    <height>5</height>
-                                    <fields>
-                                        <field>
-                                            <type>GRAPH</type>
-                                            <name>graphid</name>
-                                            <value>
-                                                <host>Template Smartmeter</host>
-                                                <name>Smartmeter: Instantaneous power</name>
-                                            </value>
-                                        </field>
-                                    </fields>
-                                </widget>
-                                <widget>
-                                    <type>GRAPH_CLASSIC</type>
-                                    <y>5</y>
-                                    <width>12</width>
-                                    <height>5</height>
-                                    <fields>
-                                        <field>
-                                            <type>GRAPH</type>
-                                            <name>graphid</name>
-                                            <value>
-                                                <host>Template Smartmeter</host>
-                                                <name>Smartmeter: Current</name>
-                                            </value>
-                                        </field>
-                                    </fields>
-                                </widget>
-                                <widget>
-                                    <type>GRAPH_CLASSIC</type>
-                                    <x>12</x>
-                                    <y>5</y>
-                                    <width>12</width>
-                                    <height>5</height>
-                                    <fields>
-                                        <field>
-                                            <type>GRAPH</type>
-                                            <name>graphid</name>
-                                            <value>
-                                                <host>Template Smartmeter</host>
-                                                <name>Smartmeter: Cumulative energy</name>
-                                            </value>
-                                        </field>
-                                    </fields>
-                                </widget>
-                            </widgets>
-                        </page>
-                    </pages>
-                </dashboard>
-            </dashboards>
         </template>
     </templates>
     <graphs>
         <graph>
-            <uuid>7c868f1824fb46b988c560ab76805125</uuid>
-            <name>Smartmeter: Instantaneous power</name>
-            <show_work_period>NO</show_work_period>
+            <uuid>65462e63b602462fbc338a067bb263c4</uuid>
+            <name>Instantaneous power</name>
             <graph_items>
                 <graph_item>
-                    <color>E97659</color>
+                    <color>1A7C11</color>
                     <item>
                         <host>Template Smartmeter</host>
                         <key>smartmeter.power</key>
@@ -335,10 +407,8 @@ https://github.com/serkenn/zabbix-smartmeter</description>
             </graph_items>
         </graph>
         <graph>
-            <uuid>3d25dda3ba2a492fa29e326b71372d94</uuid>
-            <name>Smartmeter: Current</name>
-            <show_work_period>NO</show_work_period>
-            <ymin_type_1>FIXED</ymin_type_1>
+            <uuid>46206cee0bad4d248ee5c5ac8c27e031</uuid>
+            <name>Current R/T</name>
             <graph_items>
                 <graph_item>
                     <color>F63100</color>
@@ -358,12 +428,11 @@ https://github.com/serkenn/zabbix-smartmeter</description>
             </graph_items>
         </graph>
         <graph>
-            <uuid>35174609cbe341fe8e729b40014bcfb9</uuid>
-            <name>Smartmeter: Cumulative energy</name>
-            <show_work_period>NO</show_work_period>
+            <uuid>39c96af60f524b6090eebd87880b3149</uuid>
+            <name>Cumulative energy</name>
             <graph_items>
                 <graph_item>
-                    <color>1976D2</color>
+                    <color>2774A4</color>
                     <item>
                         <host>Template Smartmeter</host>
                         <key>smartmeter.total.normal</key>
@@ -371,7 +440,7 @@ https://github.com/serkenn/zabbix-smartmeter</description>
                 </graph_item>
                 <graph_item>
                     <sortorder>1</sortorder>
-                    <color>4CAF50</color>
+                    <color>1A7C11</color>
                     <item>
                         <host>Template Smartmeter</host>
                         <key>smartmeter.total.reverse</key>
