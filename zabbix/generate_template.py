@@ -13,6 +13,9 @@ from xml.dom import minidom
 
 TEMPLATE = "Template Smartmeter"
 MASTER_KEY = "vfs.file.contents[{$SMARTMETER.JSON_PATH}]"
+POWER_GRAPH = "Smartmeter: Instantaneous power"
+CURRENT_GRAPH = "Smartmeter: Current"
+ENERGY_GRAPH = "Smartmeter: Cumulative energy"
 
 def dep(uuid, name, key, jsonpath, value_type, units, desc, tag, extra_steps=None, triggers=None):
     item = {
@@ -101,9 +104,83 @@ macros = [
      "description": "データが更新されない状態を異常とみなすまでの時間。"},
 ]
 
+dashboards = [{
+    "uuid": "7e669d2e7ca34ed780604cee86db8caa",
+    "name": "Smartmeter: Power and energy",
+    "pages": [{
+        "name": "Overview",
+        "widgets": [
+            {
+                "type": "GRAPH_CLASSIC", "width": "24", "height": "5",
+                "fields": [{
+                    "type": "GRAPH", "name": "graphid",
+                    "value": {"host": TEMPLATE, "name": POWER_GRAPH},
+                }],
+            },
+            {
+                "type": "GRAPH_CLASSIC", "y": "5", "width": "12", "height": "5",
+                "fields": [{
+                    "type": "GRAPH", "name": "graphid",
+                    "value": {"host": TEMPLATE, "name": CURRENT_GRAPH},
+                }],
+            },
+            {
+                "type": "GRAPH_CLASSIC", "x": "12", "y": "5", "width": "12", "height": "5",
+                "fields": [{
+                    "type": "GRAPH", "name": "graphid",
+                    "value": {"host": TEMPLATE, "name": ENERGY_GRAPH},
+                }],
+            },
+        ],
+    }],
+}]
+
+graphs = [
+    {
+        "uuid": "7c868f1824fb46b988c560ab76805125",
+        "name": POWER_GRAPH,
+        "show_work_period": "NO",
+        "graph_items": [{
+            "color": "E97659",
+            "item": {"host": TEMPLATE, "key": "smartmeter.power"},
+        }],
+    },
+    {
+        "uuid": "3d25dda3ba2a492fa29e326b71372d94",
+        "name": CURRENT_GRAPH,
+        "show_work_period": "NO",
+        "ymin_type_1": "FIXED",
+        "graph_items": [
+            {
+                "color": "F63100",
+                "item": {"host": TEMPLATE, "key": "smartmeter.current.r"},
+            },
+            {
+                "sortorder": "1", "color": "2774A4",
+                "item": {"host": TEMPLATE, "key": "smartmeter.current.t"},
+            },
+        ],
+    },
+    {
+        "uuid": "35174609cbe341fe8e729b40014bcfb9",
+        "name": ENERGY_GRAPH,
+        "show_work_period": "NO",
+        "graph_items": [
+            {
+                "color": "1976D2",
+                "item": {"host": TEMPLATE, "key": "smartmeter.total.normal"},
+            },
+            {
+                "sortorder": "1", "color": "4CAF50",
+                "item": {"host": TEMPLATE, "key": "smartmeter.total.reverse"},
+            },
+        ],
+    },
+]
+
 export = {
     "version": "6.0",
-    "date": "2026-10-19T00:00:00Z",
+    "date": "2026-10-20T00:00:00Z",
     "groups": [{"uuid": "82531070505b4d729046028882756858", "name": "Templates/Smartmeter Project"}],
     "templates": [{
         "uuid": "0364d262145348879555138138981442",
@@ -116,7 +193,9 @@ export = {
         "groups": [{"name": "Templates/Smartmeter Project"}],
         "items": items,
         "macros": macros,
+        "dashboards": dashboards,
     }],
+    "graphs": graphs,
 }
 
 # ---- YAML ----------------------------------------------------------------
@@ -126,10 +205,10 @@ def y(value, indent):
         out = []
         for k, v in value.items():
             if isinstance(v, (dict, list)):
-                out.append("%s%s:" % (pad, k))
+                out.append("%s%s:" % (pad, scalar(k)))
                 out.append(y(v, indent + 1))
             else:
-                out.append("%s%s: %s" % (pad, k, scalar(v, indent + 1)))
+                out.append("%s%s: %s" % (pad, scalar(k), scalar(v, indent + 1)))
         return "\n".join(out)
     if isinstance(value, list):
         out = []
@@ -143,8 +222,8 @@ def y(value, indent):
         return "\n".join(out)
     return pad + scalar(value, indent)
 
-# YAMLが文字列以外（真偽値・数値・日時）として解釈してしまう値のパターン。
-# Zabbixは全フィールドを文字列として受け取るため、該当する値はクォートする。
+# YAMLが文字列以外（真偽値・数値・日時）として解釈してしまうキーや値のパターン。
+# Zabbixは全フィールドを文字列として受け取るため、該当する文字列はクォートする。
 # 例: date を裸で書くと datetime になり「文字列で指定してください」で弾かれる。
 _YAML_TYPED = re.compile(
     r"""^(
@@ -166,7 +245,7 @@ def scalar(v, indent=0):
         return "|\n" + "\n".join(pad + line if line else "" for line in s.split("\n"))
     needs_quote = (
         s == "" or s[0] in "{}[]&*#?|-<>=!%@`'\"" or ": " in s or s.endswith(":")
-        or s.strip() != s or s.lower() in ("yes", "no", "true", "false", "null", "on", "off")
+        or s.strip() != s or s.lower() in ("y", "n", "yes", "no", "true", "false", "null", "on", "off")
         or _YAML_TYPED.match(s) is not None
     )
     try:
@@ -187,7 +266,9 @@ with open("zabbix/zabbix_smartmeter_template.yaml", "w", encoding="utf-8") as f:
 SINGULAR = {
     "groups": "group", "templates": "template", "items": "item", "tags": "tag",
     "macros": "macro", "triggers": "trigger", "preprocessing": "step",
-    "parameters": "parameter",
+    "parameters": "parameter", "dashboards": "dashboard", "pages": "page",
+    "widgets": "widget", "fields": "field", "graphs": "graph",
+    "graph_items": "graph_item",
 }
 
 def build(parent, key, value):

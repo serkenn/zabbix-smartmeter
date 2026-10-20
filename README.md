@@ -95,7 +95,8 @@ systemd timer ──> zabbix-smartmeter --json --output /var/lib/zabbix/smartmet
 | `zabbix/zabbix_smartmeter_template.xml` | 同じ内容の XML 版 |
 | `zabbix/userparameter_smartmeter.conf` | UserParameter で取りたい場合のサンプル |
 
-テンプレートには瞬時電力・電流・積算電力量のアイテムに加えて、
+テンプレートには瞬時電力・電流・積算電力量のアイテムとグラフに加えて、
+それらをまとめた専用ダッシュボード `Smartmeter: Power and energy`、
 データの更新が止まったことを検知するトリガーが含まれています。
 
 > テンプレートの 2 ファイルは `zabbix/generate_template.py` から生成しています。

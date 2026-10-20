@@ -1,6 +1,6 @@
 zabbix_export:
   version: '6.0'
-  date: '2026-10-19T00:00:00Z'
+  date: '2026-10-20T00:00:00Z'
   groups:
     - uuid: 82531070505b4d729046028882756858
       name: Templates/Smartmeter Project
@@ -165,3 +165,75 @@ zabbix_export:
         - macro: '{$SMARTMETER.STALE}'
           value: 10m
           description: データが更新されない状態を異常とみなすまでの時間。
+      dashboards:
+        - uuid: 7e669d2e7ca34ed780604cee86db8caa
+          name: 'Smartmeter: Power and energy'
+          pages:
+            - name: Overview
+              widgets:
+                - type: GRAPH_CLASSIC
+                  width: '24'
+                  height: '5'
+                  fields:
+                    - type: GRAPH
+                      name: graphid
+                      value:
+                        host: Template Smartmeter
+                        name: 'Smartmeter: Instantaneous power'
+                - type: GRAPH_CLASSIC
+                  'y': '5'
+                  width: '12'
+                  height: '5'
+                  fields:
+                    - type: GRAPH
+                      name: graphid
+                      value:
+                        host: Template Smartmeter
+                        name: 'Smartmeter: Current'
+                - type: GRAPH_CLASSIC
+                  x: '12'
+                  'y': '5'
+                  width: '12'
+                  height: '5'
+                  fields:
+                    - type: GRAPH
+                      name: graphid
+                      value:
+                        host: Template Smartmeter
+                        name: 'Smartmeter: Cumulative energy'
+  graphs:
+    - uuid: 7c868f1824fb46b988c560ab76805125
+      name: 'Smartmeter: Instantaneous power'
+      show_work_period: 'NO'
+      graph_items:
+        - color: E97659
+          item:
+            host: Template Smartmeter
+            key: smartmeter.power
+    - uuid: 3d25dda3ba2a492fa29e326b71372d94
+      name: 'Smartmeter: Current'
+      show_work_period: 'NO'
+      ymin_type_1: FIXED
+      graph_items:
+        - color: F63100
+          item:
+            host: Template Smartmeter
+            key: smartmeter.current.r
+        - sortorder: '1'
+          color: 2774A4
+          item:
+            host: Template Smartmeter
+            key: smartmeter.current.t
+    - uuid: 35174609cbe341fe8e729b40014bcfb9
+      name: 'Smartmeter: Cumulative energy'
+      show_work_period: 'NO'
+      graph_items:
+        - color: 1976D2
+          item:
+            host: Template Smartmeter
+            key: smartmeter.total.normal
+        - sortorder: '1'
+          color: 4CAF50
+          item:
+            host: Template Smartmeter
+            key: smartmeter.total.reverse

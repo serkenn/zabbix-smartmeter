@@ -279,6 +279,8 @@ Zabbix フロントエンドの **Data collection → Templates → Import** か
 - XML を使いたい場合: `/usr/share/zabbix-smartmeter/zabbix_smartmeter_template.xml`
 
 取り込んだら、Wi-SUN モジュールを挿しているホストに `Template Smartmeter` をリンクします。
+リンク後はホストのダッシュボード `Smartmeter: Power and energy` で、瞬時電力、
+R/T 相の電流、買電/売電の積算電力量を独立して確認できます。
 ホスト側で調整できるマクロは次の 3 つです。
 
 | マクロ | 既定値 | 用途 |
